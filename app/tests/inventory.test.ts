@@ -71,6 +71,18 @@ describe("useInventory", () => {
 
             expect(prices(useInventory.getState().visible)).toEqual([90, 40, 20, 20, 16])
         })
+
+        it("clears search and the in-sale filter", () => {
+            useInventory.getState().searchByName("lamp")
+            useInventory.getState().setInSale(true)
+
+            useInventory.getState().load(makeCatalog())
+
+            const state = useInventory.getState()
+            expect(state.search).toBe("")
+            expect(state.inSale).toBe(false)
+            expect(state.visible).toHaveLength(5)
+        })
     })
 
     describe("sortByName", () => {
@@ -176,6 +188,78 @@ describe("useInventory", () => {
 
             expect(names(useInventory.getState().visible)).toEqual(["alpha chair", "Beta Lamp"])
             expect(prices(useInventory.getState().visible)).toEqual([90, 40])
+        })
+    })
+
+    describe("searchByName", () => {
+        it("keeps products whose name contains the query", () => {
+            useInventory.getState().searchByName("lamp")
+
+            expect(names(useInventory.getState().visible)).toEqual(["Beta Lamp"])
+            expect(useInventory.getState().search).toBe("lamp")
+        })
+
+        it("matches names without regard to case", () => {
+            useInventory.getState().searchByName("HUB")
+
+            expect(names(useInventory.getState().visible)).toEqual(["USB Hub"])
+        })
+
+        it("shows the full catalog when the query is blank", () => {
+            useInventory.getState().searchByName("lamp")
+
+            useInventory.getState().searchByName("   ")
+
+            expect(useInventory.getState().visible).toHaveLength(5)
+        })
+
+        it("shows no products when nothing matches", () => {
+            useInventory.getState().searchByName("zzzz")
+
+            expect(useInventory.getState().visible).toEqual([])
+            expect(useInventory.getState().products).toHaveLength(5)
+        })
+
+        it("applies search on top of the selected categories", () => {
+            useInventory.getState().filterByCategory("home")
+
+            useInventory.getState().searchByName("chair")
+
+            expect(names(useInventory.getState().visible)).toEqual(["alpha chair"])
+        })
+    })
+
+    describe("setInSale", () => {
+        it("keeps only products with a discount", () => {
+            useInventory.getState().setInSale(true)
+
+            expect(useInventory.getState().inSale).toBe(true)
+            expect(names(useInventory.getState().visible)).toEqual([
+                "Beta Lamp",
+                "Dark Chocolate",
+                "USB Hub",
+                "Yoga Mat",
+            ])
+        })
+
+        it("shows the full catalog when in-sale is turned off", () => {
+            useInventory.getState().setInSale(true)
+
+            useInventory.getState().setInSale(false)
+
+            expect(useInventory.getState().inSale).toBe(false)
+            expect(useInventory.getState().visible).toHaveLength(5)
+        })
+
+        it("applies in-sale on top of search", () => {
+            useInventory.getState().searchByName("a")
+            useInventory.getState().setInSale(true)
+
+            expect(names(useInventory.getState().visible)).toEqual([
+                "Beta Lamp",
+                "Dark Chocolate",
+                "Yoga Mat",
+            ])
         })
     })
 

@@ -6,12 +6,18 @@ export type { product }
 export type SortDir = "asc" | "desc"
 export type SortKey = "name" | "price" | "discount"
 
-type InventoryState = {
+type ViewFields = {
     products: product[]
-    visible: product[]
     selectedCategorys: string[]
     sortKey: SortKey
     sortDir: SortDir
+    search: string
+    inSale: boolean
+}
+
+type InventoryState = ViewFields & {
+    categorys: string[]
+    visible: product[]
 }
 
 type InventoryActions = {
@@ -20,6 +26,8 @@ type InventoryActions = {
     sortByPrice: (dir?: SortDir) => void
     sortByDiscount: (dir?: SortDir) => void
     filterByCategory: (categorys: string | string[]) => void
+    searchByName: (query: string) => void
+    setInSale: (inSale: boolean) => void
     getCategorys: (dir?: SortDir) => string[]
 }
 
@@ -31,16 +39,23 @@ const uniqueCategorys = (rows: product[], dir: SortDir = "asc"): string[] => {
     return dir === "desc" ? categorys.reverse() : categorys
 }
 
-const visibleProducts = (
-    rows: product[],
-    selectedCategorys: string[],
-    sortKey: SortKey,
-    sortDir: SortDir,
-): product[] => {
+const visibleProducts = ({
+    products,
+    selectedCategorys,
+    sortKey,
+    sortDir,
+    search,
+    inSale,
+}: ViewFields): product[] => {
     const selected = new Set(selectedCategorys)
-    const filtered = selected.size === 0
-        ? rows
-        : rows.filter((item) => selected.has(item.category))
+    const query = search.trim().toLowerCase()
+
+    const filtered = products.filter((item) => {
+        if (selected.size > 0 && !selected.has(item.category)) return false
+        if (query && !item.name.toLowerCase().includes(query)) return false
+        if (inSale && item.discount <= 0) return false
+        return true
+    })
 
     const direction = sortDir === "asc" ? 1 : -1
 
@@ -53,51 +68,78 @@ const visibleProducts = (
     })
 }
 
-const view = (
-    products: product[],
-    selectedCategorys: string[],
-    sortKey: SortKey,
-    sortDir: SortDir,
-): Pick<InventoryState, "products" | "visible" | "selectedCategorys" | "sortKey" | "sortDir"> => ({
-    products,
-    selectedCategorys,
-    sortKey,
-    sortDir,
-    visible: visibleProducts(products, selectedCategorys, sortKey, sortDir),
+const project = (fields: ViewFields): InventoryState => ({
+    ...fields,
+    categorys: uniqueCategorys(fields.products, "asc"),
+    visible: visibleProducts(fields),
 })
 
-export const useInventory = create<InventoryStore>()((set, get) => ({
-    ...view(productTable, [], "name", "asc"),
+const snapshot = (state: InventoryStore): ViewFields => ({
+    products: state.products,
+    selectedCategorys: state.selectedCategorys,
+    sortKey: state.sortKey,
+    sortDir: state.sortDir,
+    search: state.search,
+    inSale: state.inSale,
+})
 
-    load: (rows = productTable) => {
-        const { sortKey, sortDir } = get()
-        set(view(rows, [], sortKey, sortDir))
-    },
+export const useInventory = create<InventoryStore>()((set, get) => {
+    const commit = (patch: Partial<ViewFields>) => {
+        set(project({ ...snapshot(get()), ...patch }))
+    }
 
-    sortByName: (dir = "asc") => {
-        const { products, selectedCategorys } = get()
-        set(view(products, selectedCategorys, "name", dir))
-    },
+    return {
+        ...project({
+            products: productTable,
+            selectedCategorys: [],
+            sortKey: "name",
+            sortDir: "asc",
+            search: "",
+            inSale: false,
+        }),
 
-    sortByPrice: (dir = "desc") => {
-        const { products, selectedCategorys } = get()
-        set(view(products, selectedCategorys, "price", dir))
-    },
+        load: (rows = productTable) => {
+            commit({
+                products: rows,
+                selectedCategorys: [],
+                search: "",
+                inSale: false,
+            })
+        },
 
-    sortByDiscount: (dir = "desc") => {
-        const { products, selectedCategorys } = get()
-        set(view(products, selectedCategorys, "discount", dir))
-    },
+        sortByName: (dir = "asc") => {
+            commit({ sortKey: "name", sortDir: dir })
+        },
 
-    filterByCategory: (categorys) => {
-        const { products, sortKey, sortDir } = get()
-        const selectedCategorys = typeof categorys === "string" ? [categorys] : categorys
-        set(view(products, selectedCategorys, sortKey, sortDir))
-    },
+        sortByPrice: (dir = "desc") => {
+            commit({ sortKey: "price", sortDir: dir })
+        },
 
-    getCategorys: (dir = "asc") => uniqueCategorys(get().products, dir),
-}))
+        sortByDiscount: (dir = "desc") => {
+            commit({ sortKey: "discount", sortDir: dir })
+        },
+
+        filterByCategory: (categorys) => {
+            commit({
+                selectedCategorys: typeof categorys === "string" ? [categorys] : categorys,
+            })
+        },
+
+        searchByName: (query) => {
+            commit({ search: query })
+        },
+
+        setInSale: (inSale) => {
+            commit({ inSale })
+        },
+
+        getCategorys: (dir = "asc") => {
+            if (dir === "asc") return get().categorys
+            return uniqueCategorys(get().products, dir)
+        },
+    }
+})
 
 export const selectVisible = (state: InventoryStore) => state.visible
 export const selectCategorys = (dir: SortDir = "asc") => (state: InventoryStore) =>
-    uniqueCategorys(state.products, dir)
+    dir === "asc" ? state.categorys : uniqueCategorys(state.products, dir)
