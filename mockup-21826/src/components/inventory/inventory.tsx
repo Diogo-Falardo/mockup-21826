@@ -240,7 +240,13 @@ function useProductScroll(visibleCount: number, signature: string) {
   return { scrollerRef, gridRef }
 }
 
-export function Inventory({ className }: { className?: string }) {
+export function Inventory({
+  array,
+  className,
+}: {
+  array: product[]
+  className?: string
+}) {
   const visible = useInventory(selectVisible)
   const search = useInventory((state) => state.search)
   const sortKey = useInventory((state) => state.sortKey)
@@ -254,12 +260,12 @@ export function Inventory({ className }: { className?: string }) {
   const split = useMobileSplit()
 
   useLayoutEffect(() => {
+    load(array)
+  }, [array, load])
+
+  useLayoutEffect(() => {
     ScrollTrigger.refresh()
   }, [split.height])
-
-  useEffect(() => {
-    load()
-  }, [load])
 
   const onSortPrice = () => {
     if (sortKey === "price") {

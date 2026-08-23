@@ -90,7 +90,7 @@ export const useInventory = create<InventoryStore>()((set, get) => {
 
     return {
         ...project({
-            products: productTable,
+            products: [],
             selectedCategorys: [],
             sortKey: "name",
             sortDir: "asc",
