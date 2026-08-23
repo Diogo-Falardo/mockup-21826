@@ -1,8 +1,8 @@
 # Inventory component
 
-Reusable React product grid: load a catalog, search by name, sort, filter by category and sale, and keep the toolbar pinned while the list scrolls.
+Reusable React product grid: pass in an array of products, then search by name, sort, and filter by category and sale, with the toolbar pinned while the list scrolls.
 
-The catalog lives in a Zustand store. `products.db.table.ts` stands in for a products table. The UI is shadcn’s default theme — a right-side filter panel on desktop, a resizable filter split on mobile.
+The catalog lives in a Zustand store. Pass the rows as `array` — `products.db.table.ts` is the demo table. The UI is shadcn’s default theme — a right-side filter panel on desktop, a resizable filter split on mobile.
 
 ## Stack
 
@@ -27,33 +27,33 @@ Open the URL Vite prints. `bun run test` runs the inventory store tests. `bun ru
 ## How it works
 
 ```
-Inventory  →  inventory.ts (catalog + view)  →  tiles + InventoryFilters
-                  ↑
-     products.db.table.ts (load)
+<Inventory array={products} />  →  inventory.ts (catalog + view)  →  tiles + InventoryFilters
 ```
 
-1. **Catalog** — `data/products.db.table.ts` is the mock table (`id`, `name`, `price`, `description`, `category`, `discount`).
-2. **Store** — `src/components/inventory/inventory.ts` keeps the full catalog and a derived `visible` list. Search, category, and in-sale filters compose, then the current sort is applied. The source array is not mutated.
-3. **Grid** — `Inventory` calls `load()` on mount, renders `visible` as tiles, and wires search / sort. GSAP `ScrollTrigger` fades tiles in as they enter the product scroller.
+1. **Catalog** — The parent passes `array`. Each row is `id`, `name`, `price`, `description`, `category`, `discount`. The demo uses `data/products.db.table.ts`.
+2. **Store** — `src/components/inventory/inventory.ts` keeps that catalog and a derived `visible` list. Search, category, and in-sale filters compose, then the current sort is applied. The source array is not mutated.
+3. **Grid** — `Inventory` calls `load(array)` when `array` changes, renders `visible` as tiles, and wires search / sort. GSAP `ScrollTrigger` fades tiles in as they enter the product scroller.
 4. **Filters** — `InventoryFilters` toggles in-sale (`discount > 0`) and categories. No selected category means every category.
 
 Search, sort, and filters stay on screen. Only the product scroller moves. On mobile, drag the bar between filters and products to resize the split.
 
 ## Usage
 
-Drop the grid once. It already loads the table.
+Pass the product rows in. The demo page does this with the mock table:
 
 ```tsx
 import { Inventory } from "./components/inventory/inventory.tsx"
+import { products } from "../data/products.db.table.ts"
 
-<Inventory />
+<Inventory array={products} />
 ```
 
 `Inventory` props:
 
-| Prop        | Type     | Required | Role                          |
-| ----------- | -------- | -------- | ----------------------------- |
-| `className` | `string` | no       | Extra classes on the section  |
+| Prop        | Type         | Required | Role |
+| ----------- | ------------ | -------- | ---- |
+| `array`     | `product[]`  | yes      | Catalog to display. Reloading a new array clears search, in-sale, and categories, and keeps the current sort. |
+| `className` | `string`     | no       | Extra classes on the section |
 
 `InventoryFilters` is used inside `Inventory`. It can also be rendered on its own against the same store:
 
@@ -67,7 +67,7 @@ The store is the public logic API:
 | Export / action                         | Role |
 | --------------------------------------- | ---- |
 | `useInventory`                          | Zustand hook |
-| `load(rows?)`                           | Replace the catalog (defaults to the table). Clears search, in-sale, and categories. Keeps sort. |
+| `load(rows?)`                           | Replace the catalog (defaults to `data/products.db.table.ts`). Clears search, in-sale, and categories. Keeps sort. |
 | `searchByName(query)`                   | Case-insensitive name substring |
 | `sortByName(dir?)`                      | Name sort. Default `"asc"` (A–Z) |
 | `sortByPrice(dir?)`                     | Price sort. Default `"desc"` (high–low) |
@@ -91,7 +91,7 @@ useInventory.getState().setInSale(true)
 
 ## Data
 
-There is no backend and no `localStorage`. Rows come from `data/products.db.table.ts`:
+There is no backend and no `localStorage`. Pass any `product[]`. The demo rows are in `data/products.db.table.ts`:
 
 | Field         | Type     | Notes |
 | ------------- | -------- | ----- |
@@ -104,7 +104,7 @@ There is no backend and no `localStorage`. Rows come from `data/products.db.tabl
 
 Tiles show the sale price when `discount > 0`: `price * (1 - discount / 100)`.
 
-Pass another array to `load(rows)` to swap the catalog.
+Swap the catalog by passing a different `array` (or calling `load(rows)`). Keep the `array` reference stable so filters are not cleared on every render.
 
 ## Layout
 
